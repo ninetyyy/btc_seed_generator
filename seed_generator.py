@@ -101,7 +101,7 @@ def _min_count(radix: int, ent_bits: int) -> int:
     return k
 
 
-def extract_entropy(outcomes: Iterable[int], mode: str, ent_bits: int) -> bytes:
+def extract_entropy(outcomes: Iterable[int], mode: str, required: int, ent_bits: int) -> bytes:
     """
     Exact rejection-sampling extractor.
 
@@ -118,7 +118,7 @@ def extract_entropy(outcomes: Iterable[int], mode: str, ent_bits: int) -> bytes:
     vals = list(outcomes)
     radix = RADIX[mode]
     k = len(vals)
-    required = _min_count(radix, ent_bits)
+    # required = _min_count(radix, ent_bits)
     if k < required:
         raise ValueError(
             f"{mode}: need at least {required} outcomes for {ent_bits} bits; "
@@ -328,7 +328,7 @@ def main() -> int:
                 f"For reproducibility, provide exactly {required} outcomes "
                 f"for {args.mode}/{args.bits}."
             )
-        entropy = extract_entropy(outcomes, args.mode, args.bits)
+        entropy = extract_entropy(outcomes, args.mode, required, args.bits)
         mnemonic = entropy_to_mnemonic(entropy, wordlist)
         print("WARNING: this output contains wallet secrets.")
         print("Do not save terminal output, screenshots, shell history, or logs.")
