@@ -35,11 +35,9 @@ The extraction algorithm:
 For 128 bits:
   Dice: 50 rolls minimum; Card: 35 outcomes minimum.
 For 256 bits:
-  Dice: 99 rolls minimum; Card: 70 outcomes minimum.
+  Dice: 100 rolls minimum; Card: 70 outcomes minimum.
 
-Extra outcomes may be supplied. The program will use the first sufficient
-number of outcomes; for a fixed reproducible transcript, use exactly the
-minimum count.
+The CLI requires exactly the minimum count; extra outcomes are rejected.
 """
 
 from __future__ import annotations
@@ -51,30 +49,25 @@ from pathlib import Path
 from typing import Iterable
 
 ENT_BITS = (128, 256)
-WORD_COUNTS = {128: 12, 256: 24}
 RADIX = {"dice": 6, "cards": 13}
-MIN_ROLLS = {
-    ("dice", 128): 50,
-    ("dice", 256): 99,
-    ("cards", 128): 35,
-    ("cards", 256): 70,
-}
 
-# BIP39 checksum length: ENT / 32.
+# BIP39 checksum length in bits: ENT/32 (4 bits for 128-bit, 8 bits for 256-bit).
+
+
 def _checksum_bits(entropy: bytes) -> int:
     return len(entropy) * 8 // 32
 
-def _bits_to_int(bits: str) -> int:
-    return int(bits, 2) if bits else 0
 
+# Convert integer to fixed-width binary string (e.g., 5, 8 → "00000101").
 def _int_to_bits(value: int, width: int) -> str:
     return f"{value:0{width}b}"
+
 
 def parse_rolls(text: str, mode: str) -> list[int]:
     """
     Parse whitespace/comma-separated outcomes.
     Cards accept 1..13, A=1, J=11, Q=12, K=13.
-    '10' is one token.
+    '10' is a single token (not two separate digits).
     """
     tokens = text.replace(",", " ").split()
     out = []
@@ -95,9 +88,10 @@ def parse_rolls(text: str, mode: str) -> list[int]:
         out.append(v)
     return out
 
+
 def _min_count(radix: int, ent_bits: int) -> int:
     # Smallest k with radix**k >= 2**ENT.
-    # (For 256-bit cards this is 70; for 256-bit dice it is 99.)
+    # (For 256-bit cards this is 70; for 256-bit dice it is 100.)
     k = 0
     capacity = 1
     target = 1 << ent_bits
@@ -105,6 +99,7 @@ def _min_count(radix: int, ent_bits: int) -> int:
         capacity *= radix
         k += 1
     return k
+
 
 def extract_entropy(outcomes: Iterable[int], mode: str, ent_bits: int) -> bytes:
     """
@@ -131,6 +126,7 @@ def extract_entropy(outcomes: Iterable[int], mode: str, ent_bits: int) -> bytes:
         )
 
     # For reproducibility and simple auditing, use exactly the minimum count.
+    # The CLI enforces exact count, so this truncation is a defensive safety net.
     vals = vals[:required]
 
     x = 0
@@ -153,6 +149,8 @@ def extract_entropy(outcomes: Iterable[int], mode: str, ent_bits: int) -> bytes:
     entropy_int = x % target
     return entropy_int.to_bytes(ent_bits // 8, "big")
 
+
+# BIP39: entropy + SHA256 checksum → 11-bit groups → wordlist lookup.
 def entropy_to_mnemonic(entropy: bytes, wordlist: list[str]) -> str:
     ent_bits = len(entropy) * 8
     if ent_bits not in ENT_BITS:
@@ -171,6 +169,8 @@ def entropy_to_mnemonic(entropy: bytes, wordlist: list[str]) -> str:
         words.append(wordlist[idx])
     return " ".join(words)
 
+
+# BIP39: words → 11-bit indices → split into entropy + checksum → verify SHA256.
 def mnemonic_to_entropy(mnemonic: str, wordlist: list[str]) -> bytes:
     words = mnemonic.strip().split()
     if len(words) not in (12, 24):
@@ -185,7 +185,12 @@ def mnemonic_to_entropy(mnemonic: str, wordlist: list[str]) -> bytes:
     try:
         data = "".join(f"{index[w]:011b}" for w in words)
     except KeyError as exc:
-        raise ValueError(f"Word not found in wordlist: {exc.args[0]!r}") from exc
+        raise ValueError(
+            f"Word not found in wordlist: {exc.args[0]!r}") from exc
+
+    # Note: hashlib.sha256 uses OpenSSL on most platforms. For air-gapped
+    # production use, consider auditing the OpenSSL build or substituting
+    # a pure-Python constant-time SHA-256 implementation.
 
     ent_bits = 128 if len(words) == 12 else 256
     cs_len = ent_bits // 32
@@ -202,6 +207,8 @@ def mnemonic_to_entropy(mnemonic: str, wordlist: list[str]) -> bytes:
         )
     return entropy
 
+
+# Read and validate BIP39 wordlist file (must be 2048 unique words).
 def load_wordlist(path: Path) -> list[str]:
     words = [line.strip() for line in path.read_text("utf-8").splitlines()
              if line.strip()]
@@ -211,6 +218,8 @@ def load_wordlist(path: Path) -> list[str]:
         raise ValueError("Wordlist contains duplicate words.")
     return words
 
+
+# Run built-in BIP39 test vectors to verify implementation correctness.
 def self_test(wordlist: list[str]) -> None:
     # BIP39 official test vector #1 (mnemonic only).
     # ENT = 000...000 (128 bits), checksum = 0011.
@@ -235,8 +244,41 @@ def self_test(wordlist: list[str]) -> None:
     assert got256 == expected_24, (got256, expected_24)
     assert mnemonic_to_entropy(expected_24, wordlist) == entropy256
 
+    # Non-zero entropy test: verify round-trip with known bytes.
+    non_zero = bytes(range(16))
+    mnemo_nz = entropy_to_mnemonic(non_zero, wordlist)
+    recovered = mnemonic_to_entropy(mnemo_nz, wordlist)
+    assert recovered == non_zero, (recovered, non_zero)
+
+    # Invalid checksum detection test: use a valid word with wrong checksum.
+    # The original mnemonic ends with "about" (checksum 0011 for all-zero entropy).
+    # Swapping to "abandon" (index 0, bits 00000000000) changes the checksum bits
+    # to 0000, which doesn't match the expected 0011.
+    try:
+        mnemonic_to_entropy(
+            "abandon abandon abandon abandon abandon abandon "
+            "abandon abandon abandon abandon abandon abandon", wordlist
+        )
+        assert False, "Should have raised ValueError for invalid checksum"
+    except ValueError as exc:
+        assert "Invalid BIP39 checksum" in str(exc), \
+            f"Expected checksum error, got: {exc}"
+
+    # Rejection sampling test: all-max outcomes produce X near n^k - 1,
+    # which falls in the rejection region at the top of the range.
+    # For 50 dice rolls (base-6), max X = 6^50 - 1, which exceeds
+    # the accepted_limit = floor(6^50 / 2^128) * 2^128.
+    dice_max = [6] * 50
+    try:
+        extract_entropy(dice_max, "dice", 128)
+        assert False, "Should have been rejected by exact sampling"
+    except ValueError as exc:
+        assert "REJECTED" in str(exc)
+
     print("SELF-TEST: PASS")
 
+
+# CLI entry point: parse args, dispatch to generate/verify/self-test.
 def main() -> int:
     p = argparse.ArgumentParser(
         description="Offline Dice/Card BIP39 mnemonic generator and verifier."
@@ -245,7 +287,8 @@ def main() -> int:
                    help="local BIP39 English wordlist (default: BIP39_wordlist.txt)")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    g = sub.add_parser("generate", help="generate mnemonic from supplied entropy transcript")
+    g = sub.add_parser(
+        "generate", help="generate mnemonic from supplied entropy transcript")
     g.add_argument("--mode", choices=["dice", "cards"], required=True)
     g.add_argument("--bits", type=int, choices=[128, 256], required=True)
     g.add_argument(
@@ -299,6 +342,7 @@ def main() -> int:
         return 0
 
     return 2
+
 
 if __name__ == "__main__":
     try:

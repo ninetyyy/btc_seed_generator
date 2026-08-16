@@ -14,7 +14,7 @@ write the mnemonic or entropy to disk.
 
 ## Minimum input counts
 
-- Dice (D6): 50 outcomes for 128-bit, 99 for 256-bit.
+- Dice (D6): 50 outcomes for 128-bit, 100 for 256-bit.
 - Cards (13 outcomes): 35 outcomes for 128-bit, 70 for 256-bit.
 
 Card values:
