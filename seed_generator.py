@@ -270,7 +270,7 @@ def self_test(wordlist: list[str]) -> None:
     # the accepted_limit = floor(6^50 / 2^128) * 2^128.
     dice_max = [6] * 50
     try:
-        extract_entropy(dice_max, "dice", 128)
+        extract_entropy(dice_max, "dice", 50, 128)
         assert False, "Should have been rejected by exact sampling"
     except ValueError as exc:
         assert "REJECTED" in str(exc)

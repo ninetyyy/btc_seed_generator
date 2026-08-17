@@ -4,11 +4,69 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        // ---- Self-test: run built-in BIP39 test vectors ----
         {
-            "name": "Python Debugger: Current File with Arguments",
+            "name": "Self-test",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "${workspaceFolder}/seed_generator.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "--wordlist",
+                "BIP39_wordlist.txt",
+                "self-test"
+            ]
+        },
+        // ---- Generate: dice 128-bit (50 rolls, first roll 1 => always accepted) ----
+        {
+            "name": "Generate: dice 128",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/seed_generator.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "--wordlist",
+                "BIP39_wordlist.txt",
+                "generate",
+                "--mode",
+                "dice",
+                "--bits",
+                "128",
+                "--rolls",
+                "1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2",
+                "--show-entropy"
+            ]
+        },
+        // ---- Generate: dice 256-bit (100 rolls, first roll 1 => always accepted) ----
+        {
+            "name": "Generate: dice 256",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/seed_generator.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "--wordlist",
+                "BIP39_wordlist.txt",
+                "generate",
+                "--mode",
+                "dice",
+                "--bits",
+                "256",
+                "--rolls",
+                "1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4",
+                "--show-entropy"
+            ]
+        },
+        // ---- Generate: cards 128-bit (35 outcomes, your existing transcript) ----
+        {
+            "name": "Generate: cards 128",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/seed_generator.py",
+            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "args": [
                 "--wordlist",
@@ -19,8 +77,101 @@
                 "--bits",
                 "128",
                 "--rolls",
-                "1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 8 9 4 Q J J K 9 Q",
-                "--show-entropy",
+                "4 4 K K A 4 A A 9 10 7 J J 10 6 2 4 10 6 3 10 4 3 3 4 4 2 Q Q 9 3 9 A 9 K",
+                "--show-entropy"
+            ]
+        },
+        // ---- Generate: cards 256-bit (70 outcomes, first outcome 1 => always accepted) ----
+        {
+            "name": "Generate: cards 256",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/seed_generator.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "--wordlist",
+                "BIP39_wordlist.txt",
+                "generate",
+                "--mode",
+                "cards",
+                "--bits",
+                "256",
+                "--rolls",
+                "1 2 3 4 5 6 7 8 9 10 J Q K 1 2 3 4 5 6 7 8 9 10 J Q K 1 2 3 4 5 6 7 8 9 10 J Q K 1 2 3 4 5 6 7 8 9 10 J Q K 1 2 3 4 5 6 7 8 9 10 J Q K 1 2 3 4 5",
+                "--show-entropy"
+            ]
+        },
+        // ---- Verify: valid BIP39 test vector (all-zero entropy) ----
+        {
+            "name": "Verify: valid mnemonic",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/seed_generator.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "--wordlist",
+                "BIP39_wordlist.txt",
+                "verify",
+                "--mnemonic",
+                "riot jealous happy vanish next settle citizen fog truth snack supreme helmet"
+            ]
+        },
+        // ---- Verify: invalid checksum (12x abandon => checksum 0000, expected 0011) ----
+        {
+            "name": "Verify: bad checksum",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/seed_generator.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "--wordlist",
+                "BIP39_wordlist.txt",
+                "verify",
+                "--mnemonic",
+                "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon"
+            ]
+        },
+        // ---- Error path: transcript rejected by exact rejection sampling (50x max) ----
+        {
+            "name": "Error: rejected transcript",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/seed_generator.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "--wordlist",
+                "BIP39_wordlist.txt",
+                "generate",
+                "--mode",
+                "dice",
+                "--bits",
+                "128",
+                "--rolls",
+                "6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6"
+            ]
+        },
+        // ---- Error path: wrong outcome count (49 instead of 50) ----
+        {
+            "name": "Error: wrong count",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/seed_generator.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "--wordlist",
+                "BIP39_wordlist.txt",
+                "generate",
+                "--mode",
+                "dice",
+                "--bits",
+                "128",
+                "--rolls",
+                "1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1"
             ]
         }
     ]
