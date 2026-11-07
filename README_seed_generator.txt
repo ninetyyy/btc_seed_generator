@@ -10,7 +10,9 @@ Keep these two files together:
 - your `BIP39_wordlist.txt` (2048-word BIP39 English list)
 
 The program does not download anything, does not use `random`, and does not
-write the mnemonic or entropy to disk.
+write the mnemonic or entropy to disk. It *does* validate the wordlist
+byte-for-byte against the official BIP39 English list (order + content),
+which is safer than trusting any wordlist at face value.
 
 ## Minimum input counts
 
@@ -37,8 +39,12 @@ python seed_generator.py --wordlist BIP39_wordlist.txt self-test
 Expected:
 
 ```text
-SELF-TEST: PASS
+SELF-TEST: PASS (16 official vectors, wordlist hash OK)
 ```
+
+`self-test` now runs the official BIP39 test vectors (128/256-bit entropy →
+12/24-word mnemonics) and refuses to proceed if the wordlist is
+not the exact official list (SHA-256 checked).
 
 ## Generate from a transcript
 
@@ -58,6 +64,9 @@ The generator uses exact radix rejection sampling. It interprets the outcomes
 as a base-6 or base-13 integer, rejects the small top range that would create
 modulo bias, and maps the accepted value uniformly to 2^ENT possibilities.
 
+The CLI requires exactly the minimum count; extra or missing outcomes are
+rejected.
+
 If the transcript is rejected, collect a new independent transcript. Do not
 modify the rejected values.
 
@@ -76,7 +85,8 @@ For real funds:
 
 1. Use an offline machine / live OS.
 2. Verify the Python source before running it.
-3. Verify the wordlist has exactly 2048 unique words.
+3. Verify the wordlist has exactly 2048 unique words (this program does),
+   and that it matches the official BIP39 English list (it also does).
 4. Disconnect networking.
 5. Avoid shells/IDEs that save command history or logs.
 6. Write the mnemonic by hand; do not save it as a file.

@@ -51,6 +51,52 @@ from typing import Iterable
 ENT_BITS = (128, 256)
 RADIX = {"dice": 6, "cards": 13}
 
+# SHA-256 of the canonical official BIP39 English wordlist
+# (lowercased words, one per line, no trailing newline).
+# Verified 2026-11-07 against
+# https://raw.githubusercontent.com/bitcoin/bips/master/bip-0039/english.txt
+OFFICIAL_ENGLISH_SHA256 = (
+    "187db04a869dd9bc7be80d21a86497d692c0db6abd3aa8cb6be5d618ff757fae"
+)
+
+# Official BIP39 test vectors (trezor python-mnemonic vectors.json,
+# english section). Each entry: (entropy_hex, mnemonic).
+# Covers 12 and 24 words (128 and 256-bit entropy).
+BIP39_VECTORS = [
+    ('00000000000000000000000000000000',
+     'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'),
+    ('7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f',
+     'legal winner thank year wave sausage worth useful legal winner thank yellow'),
+    ('80808080808080808080808080808080',
+     'letter advice cage absurd amount doctor acoustic avoid letter advice cage above'),
+    ('ffffffffffffffffffffffffffffffff',
+     'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong'),
+    ('0000000000000000000000000000000000000000000000000000000000000000',
+     'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art'),
+    ('7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f',
+     'legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth title'),
+    ('8080808080808080808080808080808080808080808080808080808080808080',
+     'letter advice cage absurd amount doctor acoustic avoid letter advice cage absurd amount doctor acoustic avoid letter advice cage absurd amount doctor acoustic bless'),
+    ('ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+     'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo vote'),
+    ('9e885d952ad362caeb4efe34a8e91bd2',
+     'ozone drill grab fiber curtain grace pudding thank cruise elder eight picnic'),
+    ('68a79eaca2324873eacc50cb9c6eca8cc68ea5d936f98787c60c7ebc74e6ce7c',
+     'hamster diagram private dutch cause delay private meat slide toddler razor book happy fancy gospel tennis maple dilemma loan word shrug inflict delay length'),
+    ('c0ba5a8e914111210f2bd131f3d5e08d',
+     'scheme spot photo card baby mountain device kick cradle pact join borrow'),
+    ('9f6a2878b2520799a44ef18bc7df394e7061a224d2c33cd015b157d746869863',
+     'panda eyebrow bullet gorilla call smoke muffin taste mesh discover soft ostrich alcohol speed nation flash devote level hobby quick inner drive ghost inside'),
+    ('23db8160a31d3e0dca3688ed941adbf3',
+     'cat swing flag economy stadium alone churn speed unique patch report train'),
+    ('066dca1a2bb7e8a1db2832148ce9933eea0f3ac9548d793112d9a95c9407efad',
+     'all hour make first leader extend hole alien behind guard gospel lava path output census museum junior mass reopen famous sing advance salt reform'),
+    ('f30f8c1da665478f49b001d94c5fc452',
+     'vessel ladder alter error federal sibling chat ability sun glass valve picture'),
+    ('f585c11aec520db57dd353c69554b21a89b20fb0650966fa0a9d6f74fd989d8f',
+     'void come effort suffer camp survey warrior heavy shoot primary clutch crush open amazing screen patrol group space point ten exist slush involve unfold'),
+]
+
 # BIP39 checksum length in bits: ENT/32 (4 bits for 128-bit, 8 bits for 256-bit).
 
 
@@ -118,16 +164,11 @@ def extract_entropy(outcomes: Iterable[int], mode: str, required: int, ent_bits:
     vals = list(outcomes)
     radix = RADIX[mode]
     k = len(vals)
-    # required = _min_count(radix, ent_bits)
-    if k < required:
+    # required must equal _min_count(radix, ent_bits); enforce exact match.
+    if k != required:
         raise ValueError(
-            f"{mode}: need at least {required} outcomes for {ent_bits} bits; "
-            f"got {k}."
+            f"Expected exactly {required} outcomes, got {k}."
         )
-
-    # For reproducibility and simple auditing, use exactly the minimum count.
-    # The CLI enforces exact count, so this truncation is a defensive safety net.
-    vals = vals[:required]
 
     x = 0
     for v in vals:
@@ -208,7 +249,8 @@ def mnemonic_to_entropy(mnemonic: str, wordlist: list[str]) -> bytes:
     return entropy
 
 
-# Read and validate BIP39 wordlist file (must be 2048 unique words).
+# Read and validate BIP39 wordlist file (must be 2048 unique words,
+# byte-for-byte identical to the official BIP39 English list).
 def load_wordlist(path: Path) -> list[str]:
     words = [line.strip() for line in path.read_text("utf-8").splitlines()
              if line.strip()]
@@ -216,58 +258,60 @@ def load_wordlist(path: Path) -> list[str]:
         raise ValueError(f"{path} contains {len(words)} words; expected 2048.")
     if len(set(words)) != 2048:
         raise ValueError("Wordlist contains duplicate words.")
+
+    # Strict BIP39 English compliance: canonical form is all 2048 words
+    # joined by "\n" with no trailing newline; hash must match the official
+    # list so ordering (and membership) is verified, not just the set.
+    digest = hashlib.sha256("\n".join(words).encode("utf-8")).hexdigest()
+    if digest != OFFICIAL_ENGLISH_SHA256:
+        raise ValueError(
+            f"{path} is not the official BIP39 English wordlist.\n"
+            f"  expected sha256: {OFFICIAL_ENGLISH_SHA256}\n"
+            f"  got           : {digest}\n"
+            "  Use the official list from "
+            "https://github.com/bitcoin/bips/blob/master/bip-0039/english.txt"
+        )
     return words
 
 
-# Run built-in BIP39 test vectors to verify implementation correctness.
+# Run official BIP39 test vectors to verify implementation correctness.
 def self_test(wordlist: list[str]) -> None:
-    # BIP39 official test vector #1 (mnemonic only).
-    # ENT = 000...000 (128 bits), checksum = 0011.
-    expected_12 = (
-        "abandon abandon abandon abandon abandon abandon "
-        "abandon abandon abandon abandon abandon about"
+    # Verify the wordlist itself against the official list.
+    digest = hashlib.sha256("\n".join(wordlist).encode("utf-8")).hexdigest()
+    assert digest == OFFICIAL_ENGLISH_SHA256, (
+        "Wordlist hash mismatch — not the official BIP39 English list."
     )
-    entropy = bytes(16)
-    got = entropy_to_mnemonic(entropy, wordlist)
-    assert got == expected_12, (got, expected_12)
-    assert mnemonic_to_entropy(expected_12, wordlist) == entropy
 
-    # BIP39 official 256-bit all-zero vector.
-    expected_24 = (
-        "abandon abandon abandon abandon abandon abandon "
-        "abandon abandon abandon abandon abandon abandon "
-        "abandon abandon abandon abandon abandon abandon "
-        "abandon abandon abandon abandon abandon art"
-    )
-    entropy256 = bytes(32)
-    got256 = entropy_to_mnemonic(entropy256, wordlist)
-    assert got256 == expected_24, (got256, expected_24)
-    assert mnemonic_to_entropy(expected_24, wordlist) == entropy256
+    # Official BIP39 test vectors (entropy hex -> mnemonic), covering
+    # 128 and 256-bit entropy (12 and 24-word mnemonics).
+    for i, (ent_hex, expected_mnemonic) in enumerate(BIP39_VECTORS, 1):
+        entropy = bytes.fromhex(ent_hex)
 
-    # Non-zero entropy test: verify round-trip with known bytes.
-    non_zero = bytes(range(16))
-    mnemo_nz = entropy_to_mnemonic(non_zero, wordlist)
-    recovered = mnemonic_to_entropy(mnemo_nz, wordlist)
-    assert recovered == non_zero, (recovered, non_zero)
+        got = entropy_to_mnemonic(entropy, wordlist)
+        assert got == expected_mnemonic, (
+            f"vector {i}: entropy {ent_hex}\n"
+            f"  expected: {expected_mnemonic}\n"
+            f"  got     : {got}"
+        )
 
-    # Invalid checksum detection test: use a valid word with wrong checksum.
-    # The original mnemonic ends with "about" (checksum 0011 for all-zero entropy).
-    # Swapping to "abandon" (index 0, bits 00000000000) changes the checksum bits
-    # to 0000, which doesn't match the expected 0011.
+        recovered = mnemonic_to_entropy(expected_mnemonic, wordlist)
+        assert recovered == entropy, (
+            f"vector {i}: mnemonic->entropy mismatch for {ent_hex}"
+        )
+
+    # Invalid checksum detection: 12x "abandon" has checksum 0000,
+    # but all-zero entropy requires checksum 0011 (word "about").
     try:
         mnemonic_to_entropy(
             "abandon abandon abandon abandon abandon abandon "
-            "abandon abandon abandon abandon abandon abandon", wordlist
-        )
+            "abandon abandon abandon abandon abandon abandon", wordlist)
         assert False, "Should have raised ValueError for invalid checksum"
     except ValueError as exc:
         assert "Invalid BIP39 checksum" in str(exc), \
             f"Expected checksum error, got: {exc}"
 
-    # Rejection sampling test: all-max outcomes produce X near n^k - 1,
+    # Rejection sampling test: all-max (6) outcomes produce X near 6^50-1,
     # which falls in the rejection region at the top of the range.
-    # For 50 dice rolls (base-6), max X = 6^50 - 1, which exceeds
-    # the accepted_limit = floor(6^50 / 2^128) * 2^128.
     dice_max = [6] * 50
     try:
         extract_entropy(dice_max, "dice", 50, 128)
@@ -275,7 +319,8 @@ def self_test(wordlist: list[str]) -> None:
     except ValueError as exc:
         assert "REJECTED" in str(exc)
 
-    print("SELF-TEST: PASS")
+    print(f"SELF-TEST: PASS ({len(BIP39_VECTORS)} official vectors, "
+          f"wordlist hash OK)")
 
 
 # CLI entry point: parse args, dispatch to generate/verify/self-test.
@@ -325,8 +370,8 @@ def main() -> int:
         required = _min_count(RADIX[args.mode], args.bits)
         if len(outcomes) != required:
             raise ValueError(
-                f"For reproducibility, provide exactly {required} outcomes "
-                f"for {args.mode}/{args.bits}."
+                f"Expected exactly {required} outcomes for "
+                f"{args.mode}/{args.bits}, got {len(outcomes)}."
             )
         entropy = extract_entropy(outcomes, args.mode, required, args.bits)
         mnemonic = entropy_to_mnemonic(entropy, wordlist)
