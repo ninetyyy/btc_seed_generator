@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Offline BIP39 Seed Generator</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1>Offline BIP39 Mnemonic Tool</h1>
+    <p class="subtitle">
+      Local only &middot; bound to <code>127.0.0.1</code> &middot; no network
+      &middot; no storage &middot; no clipboard
+    </p>
+  </header>
+
+  <main class="container">
+    <nav class="tabs" role="tablist" aria-label="Tool sections">
+      <button id="tab-generate" class="tab active" role="tab"
+              aria-selected="true" aria-controls="panel-generate">Generate</button>
+      <button id="tab-verify" class="tab" role="tab"
+              aria-selected="false" aria-controls="panel-verify">Verify</button>
+    </nav>
+
+    <!-- ============================ Generate tab ============================ -->
+    <section id="panel-generate" class="panel" role="tabpanel">
+      <fieldset class="config">
+        <legend>Entropy source</legend>
+        <div class="config-row">
+          <label><input type="radio" name="mode" value="dice" checked>
+            Dice (1&ndash;6)</label>
+          <label><input type="radio" name="mode" value="cards">
+            Cards (1&ndash;13; A=1, J=11, Q=12, K=13)</label>
+        </div>
+        <div class="config-row">
+          <label><input type="radio" name="bits" value="128" checked>
+            128-bit entropy &rarr; 12 words</label>
+          <label><input type="radio" name="bits" value="256">
+            256-bit entropy &rarr; 24 words</label>
+        </div>
+      </fieldset>
+
+      <p id="required-info" class="required-info"></p>
+
+      <div class="progress">
+        <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+        <span id="progress-label" class="progress-label">0 / 50 entered</span>
+      </div>
+
+      <div id="input-grid" class="input-grid" role="group"
+           aria-label="Entropy outcome inputs"></div>
+
+      <p id="input-error" class="error" role="alert" hidden></p>
+
+      <div class="actions">
+        <button id="btn-generate" class="primary" disabled>Generate Mnemonic</button>
+        <button id="btn-clear" class="secondary">Clear Session</button>
+      </div>
+
+      <section id="result" class="result" hidden>
+        <div class="result-head">
+          <span id="checksum-badge" class="badge ok">BIP39 checksum: VALID</span>
+          <span id="result-meta" class="muted"></span>
+        </div>
+        <div id="word-grid" class="word-grid"></div>
+        <div class="actions">
+          <button id="btn-send-verify" class="secondary" disabled>
+            Verify this mnemonic
+          </button>
+        </div>
+        <div class="warning">
+          <strong>Wallet secret &mdash; read carefully before entering real entropy.</strong>
+          <ul>
+            <li>Write the words down <em>by hand</em> on paper. Do not
+              screenshot, copy, save, or share them.</li>
+            <li>Keep this machine offline while entering a real transcript.</li>
+            <li>Independently restore this mnemonic in a wallet before
+              adding any funds.</li>
+            <li>The checksum proves implementation consistency only &mdash;
+              not that your dice or cards were unbiased.</li>
+          </ul>
+        </div>
+      </section>
+    </section>
+
+    <!-- ============================ Verify tab ============================ -->
+    <section id="panel-verify" class="panel" role="tabpanel" hidden>
+      <div class="field-row">
+        <label for="verify-input" class="field-label">
+          Paste a 12- or 24-word mnemonic
+        </label>
+        <span id="verify-count" class="muted" hidden></span>
+      </div>
+      <textarea id="verify-input" rows="4" spellcheck="false" autocomplete="off"
+                placeholder="e.g. abandon abandon abandon ... (12 or 24 words)"></textarea>
+
+      <p id="verify-error" class="error" role="alert" hidden></p>
+
+      <div class="actions">
+        <button id="btn-verify" class="primary">Verify Checksum</button>
+        <button id="btn-clear-verify" class="secondary">Clear</button>
+      </div>
+
+      <section id="verify-result" class="result" hidden>
+        <span id="verify-badge" class="badge"></span>
+        <p id="verify-detail"></p>
+        <p class="muted">
+          Checksum validity only. The server never returns the recovered
+          entropy, and a valid checksum does not prove the original
+          entropy source was random.
+        </p>
+      </section>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p class="muted">
+      Residual-data limits: values may remain in RAM, the OS pagefile/swap,
+      or crash dumps until power-off; browser extensions and pre-installed
+      malware can read any page. For real funds use a dedicated, clean,
+      offline machine. This page makes no network requests and stores
+      nothing.
+    </p>
+  </footer>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

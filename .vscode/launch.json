@@ -173,6 +173,19 @@
                 "--rolls",
                 "1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3 4 5 6 1"
             ]
+        },
+        // ---- Web UI: local-only Flask app on http://127.0.0.1:8420 ----
+        {
+            "name": "Web UI",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/seed_server.py",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "--wordlist",
+                "BIP39_wordlist.txt"
+            ]
         }
     ]
 }

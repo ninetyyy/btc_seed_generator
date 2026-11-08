@@ -79,6 +79,85 @@ python seed_generator.py --wordlist BIP39_wordlist.txt verify --mnemonic "..."
 The program reports whether the BIP39 checksum is valid but deliberately does
 not print the recovered entropy.
 
+## Web UI (local only)
+
+An optional local-only web UI wraps the same `seed_generator.py` logic —
+no cryptographic code is duplicated in JavaScript. It adds:
+
+- `seed_server.py`
+- `templates/index.html`
+- `static/app.js`, `static/style.css`
+
+Properties:
+
+- Binds to `127.0.0.1` only; never `0.0.0.0`. No external services,
+  APIs, or CDNs: page, styles, and script are served from this directory.
+- Flask debug mode and the interactive debugger are disabled.
+- API requests must come from the local page (`Origin`/`Host` guard);
+  cross-origin requests are rejected with 403.
+- Nothing is persisted: no files, no database, no cookies, no browser
+  storage, no request-body logging. Secrets travel only in the JSON
+  bodies of `POST /api/generate` and `POST /api/verify` (loopback only,
+  never in URLs or command-line arguments).
+- No automatic clipboard copying; words are displayed for manual
+  transcription.
+- `Clear Session` wipes all UI state, clears the in-page copy of the
+  last generated mnemonic, and calls `POST /api/reset`.
+- After a successful generate, the result section shows a
+  "Verify this mnemonic" button. It hands the fresh mnemonic to the
+  Verify tab in-page (JavaScript memory to the textarea: no clipboard,
+  no storage, no network) and runs the checksum check immediately.
+- The Verify tab shows a live word count and, once the text holds
+  exactly 12 or 24 words, re-runs the checksum check about 0.6 s after
+  the last keystroke.
+- At startup the server re-validates the wordlist SHA-256 and runs the
+  16 official BIP39 test vectors; it refuses to start if either fails.
+
+Run it (from the project directory, using the venv):
+
+```text
+python seed_server.py
+# → http://127.0.0.1:8420
+
+python seed_server.py --port 9000 --wordlist BIP39_wordlist.txt
+```
+
+API (JSON, loopback only):
+
+```text
+POST /api/generate  {"mode":"dice","bits":128,"transcript":"3 3 4 ..."}
+    → {"words":[...], "word_count":12, "checksum_valid":true, ...}
+      (the BIP39 checksum is auto-verified before the response is sent;
+       entropy is never returned)
+
+POST /api/verify    {"mnemonic":"word ... word"}
+    → {"valid":true, "word_count":12, "entropy_size_bits":128}
+      or {"valid":false, "reason":"Invalid BIP39 checksum: ..."}
+      (a verdict is HTTP 200; only malformed requests return 400;
+       the recovered entropy is never returned)
+
+POST /api/reset     → {"ok":true}   (clears server-side temporary state)
+```
+
+### Residual-data limits (web UI and CLI alike)
+
+This tool does not store secrets, but it cannot make them invisible to
+the machine they run on:
+
+- Values can remain in **RAM** until the machine is powered off (or the
+  memory is overwritten).
+- The **OS pagefile / swap** may capture pages that contained secrets.
+- **Crash dumps** (minidumps, kernel memory dumps) may contain them.
+- **Browser extensions** (and any installed add-ons) can read a page in
+  the browser serving this tool.
+- **Pre-existing malware** on the machine can exfiltrate whatever the
+  processes hold in memory.
+
+For real funds: use a dedicated, clean, offline machine; verify the
+source; and power off the machine when done. The BIP39 checksum proves
+implementation consistency — it does not prove that the physical
+dice/card process was unbiased.
+
 ## Important production precautions
 
 For real funds:
