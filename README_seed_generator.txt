@@ -83,15 +83,16 @@ not print the recovered entropy.
 
 For real funds:
 
-1. Use an offline machine / live OS.
+1. Use an offline machine / Disconnect internet, wifi and bluetooth.
 2. Verify the Python source before running it.
 3. Verify the wordlist has exactly 2048 unique words (this program does),
    and that it matches the official BIP39 English list (it also does).
-4. Disconnect networking.
-5. Avoid shells/IDEs that save command history or logs.
-6. Write the mnemonic by hand; do not save it as a file.
-7. Independently restore/verify the resulting wallet before funding it.
-8. Remember: BIP39 passphrase is a separate secret and is not generated here.
+4. Avoid shells/IDEs that save command history or logs.
+5. Write the mnemonic by hand; do not save it as a file.
+6. Independently restore/verify the resulting wallet before funding it.
+7. Shut down your machine to avoid data store unintentionally in RAM/memory.
+
+* Remember: BIP39 passphrase is a separate secret and is not generated here.
 
 This tool's checksum test proves implementation consistency; it does not prove
 that your physical dice/card process was unbiased.
