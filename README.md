@@ -7,7 +7,7 @@ Offline Dice/Card BIP39 generator.
 Keep these two files together:
 
 - `seed_generator.py`
-- your `BIP39_wordlist.txt` (2048-word BIP39 English list)
+- `BIP39_wordlist.txt` (2048-word BIP39 English list)
 
 The program does not download anything, does not use `random`, and does not
 write the mnemonic or entropy to disk. It *does* validate the wordlist
